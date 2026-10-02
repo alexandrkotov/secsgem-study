@@ -8,15 +8,15 @@ that talk over **HSMS** on localhost, built on the open-source Python library
 > I worked on a wafer fab floor (MES: PROMIS) and I am a test-automation engineer. This repo is where those two meet.
 
 ```
- ┌──────────────────────────┐      HSMS (TCP)       ┌────────────────────────────┐
- │  CellControllerHost      │  ── active connect ─▶ │  EtchToolEquipment         │
- │  (GemHostHandler)        │                       │  (GemEquipmentHandler)     │
- │                          │  S1F13 S1F17 S1F3     │  SVs  DVs  ECs             │
- │  define/link/enable      │  S2F33 S2F35 S2F37    │  collection events         │
- │  event reports           │  S2F41 S5F3 ...  ───▶ │  alarm OverTemp            │
- │                          │  ◀─── S6F11 S5F1      │  RCMD START / STOP         │
- │  SQL store / Kafka bridge│                       │  ordered S6F11 outbox+spool│
- └──────────────────────────┘                       └────────────────────────────┘
++---------------------------+       HSMS (TCP)       +-----------------------------+
+| CellControllerHost        | --- active connect --> | EtchToolEquipment           |
+| (GemHostHandler)          |                        | (GemEquipmentHandler)       |
+|                           | S1F13 S1F17 S1F3       | SVs  DVs  ECs               |
+| define/link/enable        | S2F33 S2F35 S2F37      | collection events           |
+| event reports             | S2F41 S5F3 ...  -->    | alarm OverTemp              |
+|                           | <--  S6F11 S5F1        | RCMD START / STOP           |
+| SQL store / Kafka bridge  |                        | ordered S6F11 outbox+spool  |
++---------------------------+                        +-----------------------------+
 ```
 
 ## Quick start
