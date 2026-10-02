@@ -19,7 +19,10 @@ def collected(online):
 
 
 def _run_lot(link, lot_id, wafers, complete=True):
-    link.host.remote_command(ids.RCMD_START, {ids.CP_LOT_ID: lot_id, ids.CP_RECIPE: "ETCH_OX_60S"})
+    assert link.host.remote_command(ids.RCMD_START, {ids.CP_LOT_ID: lot_id, ids.CP_RECIPE: "ETCH_OX_60S"}) == 4
+    # HCACK 4 = "accepted, will finish later": the tool runs START *after* replying S2F42.
+    # Like a real host, wait for the event that says it actually started (CI caught this race).
+    link.host.wait_for_event(ids.CE_PROCESS_STARTED, match={ids.DV_LOT_ID: lot_id})
     for n in range(1, wafers + 1):
         link.equipment.complete_wafer(f"{lot_id}-W{n:02d}")
     if complete:

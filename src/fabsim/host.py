@@ -169,8 +169,19 @@ class CellControllerHost(secsgem.gem.GemHostHandler):
 
     # ------------------------------------------------------------------ waiting helpers for tests
 
-    def wait_for_event(self, ceid: int, timeout: float = 5.0, count: int = 1) -> list[ReceivedEvent]:
-        return self._wait(lambda: [e for e in self.events_log if e.ceid == ceid], count, timeout, f"CEID {ceid}")
+    def wait_for_event(
+        self, ceid: int, timeout: float = 5.0, count: int = 1, match: dict[int, typing.Any] | None = None
+    ) -> list[ReceivedEvent]:
+        """Wait for `count` reports of `ceid`; `match` = {VID: value} narrows it down (e.g. one lot)."""
+        match = match or {}
+
+        def select():
+            return [
+                e for e in self.events_log
+                if e.ceid == ceid and all(e.values.get(vid) == value for vid, value in match.items())
+            ]
+
+        return self._wait(select, count, timeout, f"CEID {ceid} {match or ''}".strip())
 
     def wait_for_alarm(self, alid: int, timeout: float = 5.0, count: int = 1) -> list[ReceivedAlarm]:
         return self._wait(lambda: [a for a in self.alarms_log if a.alid == alid], count, timeout, f"ALID {alid}")

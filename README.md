@@ -26,7 +26,7 @@ python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 python -m fabsim.demo          # happy path, one line per step
 python -m fabsim.demo --sml    # same, plus every SECS-II message in SML text form
-pytest -q                      # ~55 integration tests, under 1.5 minutes
+pytest -q                      # 55 integration tests, under 1.5 minutes
 ```
 
 The `--sml` log shows each message twice (`>` sent, `<` received) because both sides run in one process.
@@ -99,7 +99,7 @@ All IDs are in [`src/fabsim/ids.py`](src/fabsim/ids.py).
 |---|---|
 | `test_communication.py` | HSMS selected, S1F13/F14, S1F1/F2, control state: HOST_OFFLINE → S1F17 → ONLINE_REMOTE, S1F15, local/remote switch |
 | `test_event_reports.py` | S2F33/35/37 → S6F11 happy path, values are a snapshot per event, disable, all the DRACK/LRACK/ERACK error codes, delete reports |
-| `test_remote_commands.py` | START with params → HCACK 4 + ProcessStarted + CE 20, STOP, unknown command (1), bad parameter (3) |
+| `test_remote_commands.py` | START with params → HCACK 4 + ProcessStarted + CE 20, STOP, unknown command (1), bad parameter (3), HCACK 4 really means "finish later" (deterministic race test) |
 | `test_alarms_and_variables.py` | S1F3, S1F11, S2F13, S2F15 (+ out of range, unknown EC), S5F5, S5F3 enable, S5F1 set/clear, alarm CE, alarm limit follows the EC |
 | `test_hsms_link.py` | Linktest, **T3 timeout**, S9F5 for an unsupported message, host drop + reconnect, tool restart + host reconnect after T5 |
 | `test_delivery.py` | 50-event burst keeps order, **spooling** while the host is down then in-order delivery, **lost S6F12 → resend → duplicate** |
@@ -108,7 +108,7 @@ All IDs are in [`src/fabsim/ids.py`](src/fabsim/ids.py).
 
 Tests use short timers (T3 = 2 s, T5 = 1 s) so failure cases run in seconds.
 
-## Things I found in secsgem 0.3.0 (and how the tests caught them)
+## Things the tests found (in secsgem 0.3.0, and in my own code)
 
 1. **HSMS disconnect does not reach the GEM layer.** `GemHandler.on_connection_closed()` exists but nothing calls it,
    so after the TCP link drops the communication state stays `COMMUNICATING` and the tool's control state does not go
@@ -122,7 +122,12 @@ Tests use short timers (T3 = 2 s, T5 = 1 s) so failure cases run in seconds.
    host never gets Select.rsp and the link stays not-selected. Also, every reconnect leaves the old dispatcher thread
    running, so two threads read the same message queue. Found as a flaky reconnect test (it failed in 1 of 2 full runs, and again on the first isolated rerun);
    fixed in [`hsms_fixes.py`](src/fabsim/hsms_fixes.py), then 12/12 runs of that test and 3/3 full runs passed.
-4. **No delivery guarantees for S6F11.** The stock `trigger_collection_events` starts one thread per call,
+4. **My own bug, caught by CI: treating HCACK 4 as "done".** The tool replies S2F42 HCACK=4 *before* it runs the
+   command. A test sent START and immediately simulated wafers; on the slower GitHub runner (Python 3.13 job) the
+   wafers were reported before ProcessStarted. Locally it always passed; pinned to one CPU core it failed the same way.
+   Fix: wait for the completion event, as a real host must. `test_hcack_4_means_finish_later_wait_for_completion_event`
+   slows the command down so this race is reproduced on every machine.
+5. **No delivery guarantees for S6F11.** The stock `trigger_collection_events` starts one thread per call,
    reads values inside that thread, does not retry, and has no spool. In a local run of 200 back-to-back events it
    happened to stay in order, so this is a *missing guarantee*, not an observed bug. The simulator replaces it with a
    FIFO outbox: values snapshotted at trigger time, one sender thread, resend after T3, and keep-while-offline (a simple spool).

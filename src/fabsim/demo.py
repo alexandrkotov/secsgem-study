@@ -61,7 +61,11 @@ def main() -> None:
         )
 
         step("S2F41/S2F42 remote command START (LOT_ID, RECIPE)")
+        host.setup_event_report(ids.CE_CMD_START_DONE, 2, [ids.SV_PROCESS_STATE])
         print("HCACK:", host.remote_command(ids.RCMD_START, {ids.CP_LOT_ID: "LOT-001", ids.CP_RECIPE: "ETCH_OX_60S"}))
+        # HCACK 4 = accepted, finish later -> wait for the 'command done' event before going on
+        [done] = host.wait_for_event(ids.CE_CMD_START_DONE)
+        print("CmdStartDone event, ProcessState =", done.values[ids.SV_PROCESS_STATE])
 
         step("tool processes 3 wafers -> S6F11 event reports -> host answers S6F12")
         for n in range(1, 4):
