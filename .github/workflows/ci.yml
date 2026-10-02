@@ -1,0 +1,44 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: python -m fabsim.demo
+      - run: pytest -q -p no:logging
+
+  kafka:
+    runs-on: ubuntu-latest
+    services:
+      kafka:
+        image: apache/kafka:3.8.0
+        ports:
+          - 9092:9092
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev,kafka]"
+      - name: Wait for Kafka
+        run: |
+          for i in $(seq 1 30); do
+            python -c "import socket; socket.create_connection(('localhost', 9092), 1)" && exit 0
+            sleep 2
+          done
+          exit 1
+      - run: pytest -q -p no:logging -m kafka
+        env:
+          KAFKA_BOOTSTRAP_SERVERS: localhost:9092

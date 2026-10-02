@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fabsim"
+version = "0.1.0"
+description = "Study project: SECS/GEM equipment simulator + host over HSMS (secsgem), covered with pytest"
+requires-python = ">=3.10"
+dependencies = ["secsgem==0.3.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-timeout>=2.3"]
+kafka = ["confluent-kafka>=2.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 60
+markers = ["kafka: needs a running Kafka broker (KAFKA_BOOTSTRAP_SERVERS)"]
